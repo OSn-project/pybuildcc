@@ -58,9 +58,9 @@ class Binary:
 
     _preset_name: str   # Due to implementation this has to be stored until self.run() is called. (only then is `project` passed to us)
 
-def get_libpath(node: ET.Element) -> str:
+def get_libpath(node: ET.Element, props: Dict) -> str:
     if 'libpath' in node.attrib:
-        return node.attrib['libpath']
+        return untempl(node.attrib['libpath'], props)
 
 class ExecutableTask(Binary):
     def __init__(self, node, props: Dict):
@@ -83,7 +83,7 @@ class ExecutableTask(Binary):
             self.objects.append(ObjectTask(objnode, props))
 
         for lnknode in node.iterfind('link'):
-            self.linked_libs.append(get_libpath(lnknode))
+            self.linked_libs.append(get_libpath(lnknode, props=props))
 
     def run(self, project):
         # Apply preset

@@ -2,6 +2,8 @@ from typing import Dict, List
 from abc import ABC, abstractmethod
 from misc import exec_cmd
 
+import os
+
 langs = ['c', 'cpp']
 
 class Compiler:
@@ -31,12 +33,13 @@ def clangpp_create_object(output, source, params):
     exec_cmd(cmd)
 clangpp.create_object = clangpp_create_object
 def clangpp_create_executable(output, objects, libs, params):
-    cmd = 'clang++ {2} -o {0} {1} {3} {4}'.format(
+    cmd = 'clang++ {2} -o {0} {1} {3} {4} {5}'.format(
         output,
         ' '.join(objects),
         '-g' if params.get('debug-symbols', 'false') == 'true' else '',
         ''.join([' -I %s' % file for file in params.get('includes', [])]),
         ''.join([' -D %s' % mac  for mac  in params.get('defines', [])]),
+        ''.join([' -L {} -l:{}'.format(os.path.dirname(path), os.path.basename(path)) for path in libs]),   # That colon in `-l:` is important because it disables the lib-prefix nonsense
     )
     exec_cmd(cmd)
 clangpp.create_executable = clangpp_create_executable
@@ -51,3 +54,5 @@ def find(name=None, lang=None):
             return next(c for c in compilers if c.lang == lang)
     except StopIteration:
         raise KeyError('No compiler found for ' + 'name "%s"' % name if name else 'language "%s"' % lang)
+
+# gcc -shared -fPIC -Wl,-soname,./libhello.so.1 -o libhello.so.1.0.0 libhello.o -lc
