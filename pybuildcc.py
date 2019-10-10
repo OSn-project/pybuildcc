@@ -10,6 +10,9 @@ from tasks import Task, TASKS
 from misc import untempl, log_level, log, parse_preset, update_preset
 import misc
 
+class FileFormatError(Exception):
+    pass
+
 class Project:
     name: str = ''
     default: str = ''   # default target
@@ -36,9 +39,19 @@ class Project:
 
         os.chdir(os.path.dirname(os.path.abspath(file)))
 
-        # Stuff in project is static (you can't run it)
+        self.import_xml(root)
+
         self.name    = root.attrib.get('name',    None)
         self.default = root.attrib.get('default', None)
+
+    def import_xml(self, root: ET.Element):
+        if root.tag != 'buildcc': raise FileFormatError()
+
+        # Parse imports
+        for node in root.iterfind('import'):
+            file = untempl(node.attrib['file'], self.props)
+            log(3, 'Importing `{}`.'.format(file))
+            self.import_file(file)
 
         # Parse properties
         def parse_prop(node: ET.Element, props: Dict, prefix: str = ''):
@@ -87,10 +100,14 @@ class Project:
             except KeyError:
                 raise Exception('Element missing `name` attribute.')
 
+    def import_file(self, path: str):
+        root = ET.ElementTree(file=path).getroot()
+        self.import_xml(root)
+
     def init_props(self):
         import getpass
         self.props['user.home'] = os.path.expanduser('~')
-        self.props['user.'] = os.path.expanduser('~')
+        self.props['user.name'] = getpass.getuser()
 
     def run(self, name):
         target = self.targets[name]
@@ -133,7 +150,28 @@ def main():
     # import pdb;pdb.set_trace()
     misc.log_level = int(args.v)
 
-    project = Project(file=args.file)
+    project = Project()
+
+    # Parse any config files in the path
+    path_bits = os.path.abspath('.').split('/')[1:]
+    for dir in ['/' + '/'.join(path_bits[:i]) for i in range(len(path_bits))]:
+        file = dir + '/config.xml'
+        if os.path.isfile(file):
+            try:
+                log(3, 'Importing config file `{}`.'.format(file))
+                project.import_file(file)
+            except FileFormatError:
+                log(1, 'Config file `{}` is not a BuildCC file, ignoring.'.format(file))
+
+    # Parse the build file
+    if args.file:
+        project.parse(args.file)
+    elif os.path.isfile('build.xml'):
+        project.parse(os.path.abspath(args.file))
+    else:
+        log(1, 'No build file specified or found.')
+        return
+
     log(3, project.__repr__())
 
     try:

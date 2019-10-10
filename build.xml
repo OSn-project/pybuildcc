@@ -1,6 +1,7 @@
 <buildcc default="help">
 	<property name="install-dir" value="/usr/share/pybuildcc"/>
-	
+	<import file="../root/libs/libbase/build.xml"/>
+
 	<target name="help">
 		<echo>To install BuildCC, do:</echo>
 		<echo>    sudo python3 pybuildcc.py -target install</echo>
@@ -11,7 +12,7 @@
 		<echo>Run `buildcc --help` for commandline help.</echo>
 		<echo>See `buildcc-example.xml` for example usage.</echo>
 	</target>
-	
+
 	<target name="install">
 		<exec>mkdir ${install-dir}</exec>
 		<exec>cp *.py ${install-dir}</exec>
