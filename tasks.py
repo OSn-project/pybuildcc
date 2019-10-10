@@ -32,11 +32,12 @@ class ExecTask(Task):
     def __repr__(self):
         return 'exec("%s")' % self.text
 
-from binary_tasks import ObjectTask, ExecutableTask
+from binary_tasks import ObjectTask, ExecutableTask, SharedLibTask
 
 TASKS = {
     'echo': EchoTask,
     'object': ObjectTask,
     'executable': ExecutableTask,
+    'shared-library': SharedLibTask,
     'exec': ExecTask,
 }

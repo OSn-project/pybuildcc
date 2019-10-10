@@ -28,11 +28,14 @@ def parse_preset(node, props={}):
     # Includes
     preset['includes'] = []
     preset['defines'] = []
+    preset['opts'] = []
 
     for include_tag in node.iterfind('include'):
         preset['includes'].append(untempl(include_tag.attrib['dir'], props))
     for define_tag in node.iterfind('define'):
         preset['defines'].append(untempl(define_tag.attrib['key'], props))
+    for opt_tag in node.iterfind('opt'):
+        preset['opts'].append(untempl(opt_tag.text, props))
 
     return preset
 
@@ -40,10 +43,12 @@ def update_preset(preset, more):
     # Merge lists instead of replacing them
     includes = preset.get('includes', []) + more.get('includes', [])
     defines  = preset.get('defines', [])  + more.get('defines', [])
+    opts     = preset.get('opts', [])  + more.get('opts', [])
 
     preset.update(more)
 
     preset['includes'] = includes
     preset['defines'] = defines
+    preset['opts'] = opts
 
     return preset
