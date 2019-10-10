@@ -1,0 +1,25 @@
+<buildcc default="help">
+	<property name="install-dir" value="/usr/share/pybuildcc"/>
+	
+	<target name="help">
+		<echo>To install BuildCC, do:</echo>
+		<echo>    sudo python3 pybuildcc.py -target install</echo>
+		<echo>To remove:</echo>
+		<echo>    sudo python3 pybuildcc.py -target uninstall</echo>
+		<echo></echo>
+		<echo>Then:</echo>
+		<echo>Run `buildcc --help` for commandline help.</echo>
+		<echo>See `buildcc-example.xml` for example usage.</echo>
+	</target>
+	
+	<target name="install">
+		<exec>mkdir ${install-dir}</exec>
+		<exec>cp *.py ${install-dir}</exec>
+		<exec>ln -sT ${install-dir}/pybuildcc.py /usr/bin/buildcc</exec>
+	</target>
+
+	<target name="uninstall">
+		<exec>rm -rf ${install-dir}</exec>
+		<exec>rm /usr/bin/buildcc</exec>
+	</target>
+</buildcc>

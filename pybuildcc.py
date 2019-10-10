@@ -123,7 +123,7 @@ def main():
     parser.add_argument('-objtags', metavar='DIR', default=None, help="Prints an object tag for every C and C++ file in the specified directory, then aborts.")
     parser.add_argument('-target')
     parser.add_argument('-file', help="specify build file", default='build.xml')
-    parser.add_argument('-v', help="verbosity: {0|1|2}", default='1')
+    parser.add_argument('-v', help="verbosity: [0-3] (default=1)", default='1')
     args = parser.parse_args()
 
     if args.objtags:

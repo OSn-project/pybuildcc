@@ -15,7 +15,7 @@ def untempl(text, props):
     def get_prop(match):
         return props[match.group(1)]
 
-    return re.sub('\${([A-Za-z.-_]+)}', get_prop, text)
+    return re.sub('\${([A-Za-z.\-_]+)}', get_prop, text)
 
 preset_attrs = ['debug-symbols']
 def parse_preset(node, props={}):

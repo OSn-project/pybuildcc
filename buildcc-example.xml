@@ -1,0 +1,36 @@
+<!-- This is not a functional build file, it is just to demonstrate all the features. -->
+
+<buildcc name="Hello world project" default="compile">
+	<import file="libs.xml"/>
+	
+	<preset name="ndbg" debug-symbols="false">
+		<include dir="${libs.base.include}"/>	<!-- Any compilations using this preset will include this header directory and define this macro -->
+		<define key="NDEBUG"/>
+	</preset>
+	<preset name="debug" parent="ndbg" debug-symbols="true"/>	<!-- You can subclass presets and override the parent's values. -->
+	
+	<property name="foo" value="bar"/>
+	
+	<property name="config">
+		<property name="output_name" value="hello_wld"/>
+		<property name="install_dir" value="${user.home}/.local/bin/"/>		<!-- Some variables, like `user.home` are defined automatically. To see all defined variables, run `buildcc -v 3`. -->
+	</property>
+	
+	<target name="info">
+		<echo>Binary name: ${config.output_name}</echo>
+		<echo>Install dir: ${config.install_dir}</echo>
+		<echo></echo>
+		<echo>Final location: ${config.install_dir}${config.output_name}</echo>
+	</target>
+	
+	<target name="compile">
+		<executable output="${config.output_name}" compiler="clang++">
+			<object lang="cpp" source="hi.cpp" preset="debug" debug-symbols="false" />	<!-- compile this object using the `debug` preset -->
+			<link libpath="/usr/lib/x86_64-linux-gnu/libpng16.so.16"/>	<!-- link a library -->
+		</executable>
+	</target>
+	
+	<target name="clean">
+		<exec>rm *.o ${config.output_name}</exec>
+	</target>
+</buildcc>
