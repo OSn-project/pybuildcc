@@ -56,11 +56,11 @@ class Clang:
             g_param='-g' if params.get('debug-symbols', 'false') == 'true' else '',
             inc_dirs=''.join([' -I %s' % file for file in params.get('includes', [])]),
             defines=''.join([' -D %s' % mac  for mac  in params.get('defines', [])]),
-            link_libs=''.join([' -L {} -l:{} {opts}'.format(os.path.dirname(path), os.path.basename(path)) for path in libs]),   # That colon in `-l:` is important because it disables the lib-prefix nonsense
+            link_libs=''.join([' -Wl,-rpath,"{dir}" -L {dir} -l:{file}'.format(dir=os.path.dirname(path), file=os.path.basename(path)) for path in libs]),   # That colon in `-l:` is important because it disables the lib-prefix nonsense
             opts=' '.join(params.get('opts', [])),
         )
         exec_cmd(cmd)
-
+    # https://stackoverflow.com/questions/12637841/what-is-the-soname-option-for-building-shared-libraries-for
     def create_shlib(self, output, objects, libs, params):
         cmd = '{ccname} -shared -{g_param}o {out} {objs} {inc_dirs} {defines} {link_libs} {opts}'.format(
             ccname = 'clang++' if self.is_cpp else 'clang',
@@ -69,7 +69,7 @@ class Clang:
             g_param='-g' if params.get('debug-symbols', 'false') == 'true' else '',
             inc_dirs=''.join([' -I %s' % file for file in params.get('includes', [])]),
             defines=''.join([' -D %s' % mac  for mac  in params.get('defines', [])]),
-            link_libs=''.join([' -L {} -l:{} {opts}'.format(os.path.dirname(path), os.path.basename(path)) for path in libs]),   # That colon in `-l:` is important because it disables the lib-prefix nonsense
+            link_libs=''.join([' -Wl,-rpath,"{dir}" -L {dir} -l:{file}'.format(dir=os.path.dirname(path), file=os.path.basename(path)) for path in libs]),   # That colon in `-l:` is important because it disables the lib-prefix nonsense
             opts=' '.join(params.get('opts', [])),
         )
         exec_cmd(cmd)

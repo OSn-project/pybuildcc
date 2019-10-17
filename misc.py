@@ -1,5 +1,6 @@
 import re
 from os import system
+from errors import *
 
 global log_level
 log_level = 1
@@ -7,9 +8,20 @@ log_level = 1
 def log(lvl, msg):
     if lvl <= log_level: print(msg)
 
+class ExecCommandError(Exception):
+    def __init__(self, cmd=None, code=0):
+        super().__init__()
+        self.cmd = cmd
+        self.code = code
+
 def exec_cmd(cmd: str):
     log(2, cmd)
-    system(cmd)
+    rc = system(cmd)
+    if rc != 0: raise ExecCommandError(cmd, rc)
+
+import itertools
+def flatten(lst):
+    return list(itertools.chain.from_iterable(lst))
 
 def untempl(text, props):
     def get_prop(match):

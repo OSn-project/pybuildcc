@@ -7,11 +7,10 @@ import os, sys, re
 import xml.etree.cElementTree as ET
 
 from tasks import Task, TASKS
-from misc import untempl, log_level, log, parse_preset, update_preset
+from filegens import FileGen, FileSet
+from misc import untempl, log_level, log, parse_preset, update_preset, ExecCommandError
 import misc
-
-class FileFormatError(Exception):
-    pass
+from errors import *
 
 class Project:
     name: str = ''
@@ -20,14 +19,16 @@ class Project:
     targets: Dict
     props: Dict[str, str]
     presets: Dict[str, Dict[str, str]]
+    filesets: Dict[str, FileSet]
 
     def __init__(self, file=None):
         self.name = ''
         self.default = ''
 
-        self.targets = {}
-        self.props   = {}
-        self.presets = {}
+        self.targets  = {}
+        self.props    = {}
+        self.presets  = {}
+        self.filesets = {}
 
         self.init_props()
 
@@ -35,17 +36,20 @@ class Project:
             self.parse(file)
 
     def parse(self, file):
-        root = ET.ElementTree(file=file).getroot()
-
         os.chdir(os.path.dirname(os.path.abspath(file)))
 
-        self.import_xml(root)
+        self.set__file(file)    # Initialize _file.* properties
+
+        root = ET.ElementTree(file=file).getroot()
+        self.import_xml(root, file=file)
 
         self.name    = root.attrib.get('name',    None)
         self.default = root.attrib.get('default', None)
 
-    def import_xml(self, root: ET.Element):
-        if root.tag != 'buildcc': raise FileFormatError()
+    def import_xml(self, root: ET.Element, file=''):
+        if root.tag != 'buildcc': raise FileFormatError(file=file, tag=root.tag)
+
+        parse_args = {"props": self.props, "filesets": self.filesets}
 
         # Parse imports
         for node in root.iterfind('import'):
@@ -93,21 +97,37 @@ class Project:
             preset = get_preset(node.attrib['name'])
             self.presets[node.attrib['name']] = preset
 
+        # Parse filesets
+
+        for node in root.iterfind('fileset'):
+            self.filesets[node.attrib['name']] = FileSet(node, **parse_args)
+
         # Parse targets
         for node in root.iterfind('target'):
             try:
-                self.targets[node.attrib['name']] = Target(node, props=self.props)
+                self.targets[node.attrib['name']] = Target(node, **parse_args)
             except KeyError:
                 raise Exception('Element missing `name` attribute.')
 
     def import_file(self, path: str):
+        old_file = self.props.get('_file.path', '')     # Retain old file path so that we can go back to it again after we've imported this
+        self.set__file(path)
+
         root = ET.ElementTree(file=path).getroot()
-        self.import_xml(root)
+        self.import_xml(root, file=path)
+
+        self.set__file(old_file)
 
     def init_props(self):
         import getpass
         self.props['user.home'] = os.path.expanduser('~')
         self.props['user.name'] = getpass.getuser()
+
+    def set__file(self, path: str):
+        path = os.path.abspath(path)
+        self.props['_file.path'] = path
+        self.props['_file.dir']  = os.path.dirname(path)
+        self.props['_file.name'] = os.path.basename(path)
 
     def run(self, name):
         target = self.targets[name]
@@ -122,15 +142,16 @@ class Project:
         s += ('targets:\t{}\n'.format(list(self.targets.keys())))
         s += 'presets:\n' +    ''.join(['\t{}\t= {}\n'.format(k, v) for k, v in self.presets.items()])
         s += 'properties:\n' + ''.join(['\t{}\t= {}\n'.format(k, v) for k, v in self.props.items()])
+        s += 'filesets:\n' +   ''.join(['\t{}\t= [\n\t\t{}\n\t]\n'.format(k, ',\n\t\t'.join(fileset.get_files())) for k, fileset in self.filesets.items()])
         return s
 
 class Target:
     tasks: List[Task]
-    def __init__(self, node, props: Dict):
+    def __init__(self, node, props: Dict, **kwargs):
         self.tasks = []
 
         for tasknode in node:
-            task = TASKS[tasknode.tag](tasknode, props)    # Look up the constructor for the given tag and call it
+            task = TASKS[tasknode.tag](tasknode, props=props, **kwargs)    # Look up the constructor for the given tag and call it
             self.tasks.append(task)
 
 def main():
@@ -165,11 +186,17 @@ def main():
 
     # Parse the build file
     if args.file:
-        project.parse(args.file)
+        build_file = args.file
     elif os.path.isfile('build.xml'):
-        project.parse(os.path.abspath(args.file))
+        build_file = os.path.abspath(args.file)
     else:
         log(1, 'No build file specified or found.')
+        return
+
+    try:
+        project.parse(build_file)
+    except FileFormatError as err:
+        print('Error: file `{}` is not a buildcc file. (root tag is `{}`)'.format(err.file, err.tag))
         return
 
     log(3, project.__repr__())
@@ -178,6 +205,8 @@ def main():
         tgtname = args.target if args.target else project.default
         log(1, 'Running {}target `{}`...'.format('' if args.target else 'default ', tgtname))
         project.run(tgtname)
+    except ExecCommandError as err:
+        print('Error: The following command exited with code {}:\n\n{}'.format(err.code, err.cmd))
     except KeyError as k:
         print('Error: No target named', k)
 

@@ -1,26 +1,36 @@
 import xml.etree.cElementTree as ET
 from typing import Dict, List
 from tasks import Task
-from misc import log, parse_preset, update_preset, untempl
+from filegens import FileGen
+from misc import log, parse_preset, update_preset, untempl, flatten
+import itertools
 
 import compilers
 
-class ObjectTask(Task):
-    source: str
+class ObjectTask(FileGen):  # Inherits Task
+    sources: List[str]
     file: str
 
-    output: str
+    output: List[str]
 
     compiler: compilers.Compiler
     params: Dict
 
     _preset_name: str   # Due to implementation this has to be stored until self.run() is called. (only then is `project` passed to us)
 
-    def __init__(self, node: ET.Element, props: Dict):
-        self.source = untempl(node.attrib['source'], props) if 'source' in node.attrib else None
+    def __init__(self, node: ET.Element, props: Dict, **kwargs):
+        filesets = kwargs['filesets']
+
+        if 'source' in node.attrib:
+            self.source = [untempl(node.attrib['source'], props)]
+        elif 'source-set' in node.attrib:
+            self.source = filesets[node.attrib['source-set']].get_files()
+        else:
+            self.source = None
+
         self.file   = untempl(node.attrib['file'], props)   if 'file'   in node.attrib else None  # file overrides source if specified
 
-        self.output = self.file if self.file else self.source + '.o'
+        self.output = [self.file] if self.file else [path + '.o' for path in self.source]
 
         self.compiler = compilers.find(
             name=node.attrib['compiler'] if 'compiler' in node.attrib else None, # name overrides lang if specified
@@ -40,8 +50,12 @@ class ObjectTask(Task):
             self.params = preset
 
         if not self.file:
-            log(1, 'compile {} -> {}'.format(self.source, self.output))
-            self.compiler.create_object(self.output, self.source, self.params)
+            for i in range(len(self.source)):
+                log(1, 'compile {} -> {}'.format(self.source[i], self.output[i]))
+                self.compiler.create_object(self.output[i], self.source[i], self.params)
+
+    def get_files(self):
+        return self.output
 
     @property
     def for_shlib(self) -> bool:
@@ -54,7 +68,7 @@ class ObjectTask(Task):
         if self.file:
             return self.file
         else:
-            return 'compile({} -> {})'.format(self.source, self.output)
+            return 'compile(' + ', '.join(['{} -> {}'.format(self.source[i], self.output[i]) for i in range(len(self.source))]) + ')'
 
 class BinaryTask(Task):
     output: str
@@ -67,7 +81,7 @@ class BinaryTask(Task):
 
     _preset_name: str   # Due to implementation this has to be stored until self.run() is called. (only then is `project` passed to us)
 
-    def __init__(self, node, props: Dict):
+    def __init__(self, node, props: Dict, **kwargs):
         # Parse attributes
         self.output = untempl(node.attrib['output'], props) if 'output' in node.attrib else None
 
@@ -94,11 +108,11 @@ def get_libpath(node: ET.Element, props: Dict) -> str:
         return untempl(node.attrib['libpath'], props)
 
 class ExecutableTask(BinaryTask):
-    def __init__(self, node, props: Dict):
+    def __init__(self, node, props: Dict, **kwargs):
         super().__init__(node, props)
 
         for objnode in node.iterfind('object'):
-            self.objects.append(ObjectTask(objnode, props))
+            self.objects.append(ObjectTask(objnode, props, **kwargs))
 
         for lnknode in node.iterfind('link'):
             self.linked_libs.append(get_libpath(lnknode, props=props))
@@ -110,18 +124,18 @@ class ExecutableTask(BinaryTask):
         for obj in self.objects:
             obj.run(project)
 
-        log(1, 'compile {} -> {}'.format(str([o.output for o in self.objects]), self.output))
-        self.compiler.create_executable(untempl(self.output, project.props), [obj.output for obj in self.objects], self.linked_libs, self.params)
+        log(1, 'compile {} -> {}'.format(str(flatten([o.get_files() for o in self.objects])), self.output))
+        self.compiler.create_executable(untempl(self.output, project.props), flatten([obj.get_files() for obj in self.objects]), self.linked_libs, self.params)
 
     def __repr__(self):
         return 'compile({} -> {})'.format(str([o.output for o in self.objects]), self.output)
 
 class SharedLibTask(BinaryTask):
-    def __init__(self, node, props: Dict):
+    def __init__(self, node, props: Dict, **kwargs):
         super().__init__(node, props)
 
         for objnode in node.iterfind('object'):
-            obj_task = ObjectTask(objnode, props)
+            obj_task = ObjectTask(objnode, props, **kwargs)
             obj_task.for_shlib = True
             self.objects.append(obj_task)
 
@@ -135,8 +149,9 @@ class SharedLibTask(BinaryTask):
         for obj in self.objects:
             obj.run(project)
 
-        log(1, 'compile {} -> {}'.format(str([o.output for o in self.objects]), self.output))
-        self.compiler.create_shlib(untempl(self.output, project.props), [obj.output for obj in self.objects], self.linked_libs, self.params)
+        obj_files = flatten([o.get_files() for o in self.objects])
+        log(1, 'compile {} -> {}'.format(str(obj_files), self.output))
+        self.compiler.create_shlib(untempl(self.output, project.props), obj_files, self.linked_libs, self.params)
 
     def __repr__(self):
-        return 'compile({} -> {})'.format(str([o.output for o in self.objects]), self.output)
+        return 'compile({} -> {})'.format(str(flatten([o.get_files() for o in self.objects])), self.output)
