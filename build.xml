@@ -1,6 +1,5 @@
 <buildcc default="help">
 	<property name="install-dir" value="/usr/share/pybuildcc"/>
-	<import file="../root/libs/libbase/build.xml"/>
 
 	<target name="help">
 		<echo>To install BuildCC, do:</echo>
@@ -21,6 +20,14 @@
 
 	<target name="uninstall">
 		<exec>rm -rf ${install-dir}</exec>
+		<exec>rm /usr/bin/buildcc</exec>
+	</target>
+
+	<target name="install-local" comment="Install in place. Just creates a link in /user/bin">
+		<exec>ln -sT ${_file.dir}/pybuildcc.py /usr/bin/buildcc</exec>
+	</target>
+
+	<target name="uninstall-local">
 		<exec>rm /usr/bin/buildcc</exec>
 	</target>
 </buildcc>
