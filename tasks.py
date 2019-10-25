@@ -34,7 +34,6 @@ class ExecTask(Task):
 
 from binary_tasks import ObjectTask, ExecutableTask, SharedLibTask
 
-
 TASKS = {
     'echo': EchoTask,
     'object': ObjectTask,

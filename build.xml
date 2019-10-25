@@ -1,5 +1,6 @@
 <buildcc default="help">
 	<property name="install-dir" value="/usr/share/pybuildcc"/>
+	<property name="bin-dir" value="/usr/bin"/>
 
 	<target name="help">
 		<echo>To install BuildCC, do:</echo>
@@ -10,6 +11,11 @@
 		<echo>Then:</echo>
 		<echo>Run `buildcc --help` for commandline help.</echo>
 		<echo>See `buildcc-example.xml` for example usage.</echo>
+		<echo></echo>
+		<echo>---------------------------------------</echo>
+		<echo>Will currently install python files to:  ${install-dir}/</echo>
+		<echo>And create the shortcut:                 ${bin-dir}/buildcc</echo>
+		<echo>(To change specify `-p install-dir=...` and `-p bin-dir=...`)</echo>
 	</target>
 
 	<target name="install">
@@ -20,11 +26,11 @@
 
 	<target name="uninstall">
 		<exec>rm -rf ${install-dir}</exec>
-		<exec>rm /usr/bin/buildcc</exec>
+		<exec>rm ${bin-dir}/buildcc</exec>
 	</target>
 
 	<target name="install-local" comment="Install in place. Just creates a link in /user/bin">
-		<exec>ln -sT ${_file.dir}/pybuildcc.py /usr/bin/buildcc</exec>
+		<exec>ln -sT ${_file.dir}/pybuildcc.py ${bin-dir}/buildcc</exec>
 	</target>
 
 	<target name="uninstall-local">

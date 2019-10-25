@@ -9,11 +9,12 @@
 	</preset>
 	<preset name="debug" parent="ndbg" debug-symbols="true"/>	<!-- You can subclass presets and override the parent's values. -->
 	
-	<property name="foo" value="bar"/>
+	<property name="foo" value="bar"/>		<!-- If more tags for the same property exist, the first original value has precedence. -->
 	
 	<property name="config">
-		<property name="output_name" value="hello_wld"/>
 		<property name="install_dir" value="${user.home}/.local/bin/"/>		<!-- Some variables, like `user.home` are defined automatically. To see all defined variables, run `buildcc -v 3`. -->
+		<property name="output_name" value="hello_wld"/ if="foo" neq="bar"/>
+		<property name="output_name" value="bye_wld"/>			<!-- This will only happen if the property was not set in the above line. -->
 	</property>
 	
 	<target name="info">

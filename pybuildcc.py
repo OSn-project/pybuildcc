@@ -11,6 +11,7 @@ from filegens import FileGen, FileSet
 from misc import untempl, log_level, log, parse_preset, update_preset, ExecCommandError
 import misc
 from errors import *
+from conditional import parse_conditional
 
 class Project:
     name: str = ''
@@ -59,9 +60,11 @@ class Project:
 
         # Parse properties
         def parse_prop(node: ET.Element, props: Dict, prefix: str = ''):
+            if not parse_conditional(node, props): return
+
             name = prefix + node.attrib['name']
 
-            if 'value' in node.attrib:  # Some properties may just be containers and have no value
+            if 'value' in node.attrib and name not in props:  # Some properties may just be containers and have no value
                 props[name] = untempl(node.attrib['value'], props)
 
             # Nested properties
@@ -160,8 +163,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-objtags', metavar='DIR', default=None, help="Prints an object tag for every C and C++ file in the specified directory, then aborts.")
     parser.add_argument('-target')
-    parser.add_argument('-file', help="specify build file", default='build.xml')
-    parser.add_argument('-v', help="verbosity: [0-3] (default=1)", default='1')
+    parser.add_argument('-file', help="Specify build file", default='build.xml')
+    parser.add_argument('-v', help="Verbosity: [0-3] (default=1)", default='1')
+    parser.add_argument('-p', help="Set a property. Overrides properties from files. [name=value]", action='append', default=[])
     args = parser.parse_args()
 
     if args.objtags:
@@ -172,6 +176,16 @@ def main():
     misc.log_level = int(args.v)
 
     project = Project()
+
+    # Command line properties
+    for propstr in args.p:
+        if re.match("^[a-zA-Z1-9\.\-]+\=[^=]+$", propstr):
+            name, val = propstr.split('=')
+            project.props[name] = val
+        elif re.match("^[a-zA-Z1-9\.\-]+$", propstr):
+            project.props[propstr] = ''
+        else:
+            raise Exception("Invalid property string `-p {}`".format(propstr))
 
     # Parse any config files in the path
     path_bits = os.path.abspath('.').split('/')[1:]
