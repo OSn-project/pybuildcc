@@ -7,10 +7,10 @@ import os, sys, re
 import xml.etree.cElementTree as ET
 
 from tasks import Task, TASKS
-from filegens import FileGen, FileSet
+from filegens import FileGenTask, FileSet
 from misc import untempl, log_level, log, parse_preset, update_preset, ExecCommandError
 import misc
-from errors import *
+from errors import ParseError
 from conditional import parse_conditional
 
 class Project:
@@ -48,7 +48,8 @@ class Project:
         self.default = root.attrib.get('default', None)
 
     def import_xml(self, root: ET.Element, file=''):
-        if root.tag != 'buildcc': raise FileFormatError(file=file, tag=root.tag)
+        if root.tag != 'buildcc':
+            raise ParseError(f'file `{file}` is not a buildcc file. (root tag is `{root.tag}`)')
 
         parse_args = {"props": self.props, "filesets": self.filesets}
 
@@ -110,7 +111,7 @@ class Project:
             try:
                 self.targets[node.attrib['name']] = Target(node, **parse_args)
             except KeyError:
-                raise Exception('Element missing `name` attribute.')
+                raise ParseError('Element missing `name` attribute.')
 
     def import_file(self, path: str):
         old_file = self.props.get('_file.path', '')     # Retain old file path so that we can go back to it again after we've imported this
@@ -185,9 +186,9 @@ def main():
         elif re.match("^[a-zA-Z1-9\.\-]+$", propstr):
             project.props[propstr] = ''
         else:
-            raise Exception("Invalid property string `-p {}`".format(propstr))
+            raise Exception("Invalid property argument `-p {}`".format(propstr))
 
-    # Parse any config files in the path
+    # Go up our path, importing any config files above us
     path_bits = os.path.abspath('.').split('/')[1:]
     for dir in ['/' + '/'.join(path_bits[:i]) for i in range(len(path_bits))]:
         file = dir + '/config.xml'
@@ -209,18 +210,18 @@ def main():
 
     try:
         project.parse(build_file)
-    except FileFormatError as err:
-        print('Error: file `{}` is not a buildcc file. (root tag is `{}`)'.format(err.file, err.tag))
+    except ParseError as err:
+        print('Error: ' + err.msg)
         return
 
     log(3, project.__repr__())
 
     try:
         tgtname = args.target if args.target else project.default
-        log(1, 'Running {}target `{}`...'.format('' if args.target else 'default ', tgtname))
+        log(1, f'Running {"" if args.target else "default "}target `{tgtname}`...')
         project.run(tgtname)
     except ExecCommandError as err:
-        print('Error: The following command exited with code {}:\n\n{}'.format(err.code, err.cmd))
+        print(f'Error: The following command exited with code {err.code}:\n\n{err.cmd}')
     except KeyError as k:
         print('Error: No target named', k)
 
@@ -237,4 +238,5 @@ def objtags_for(dir_path):
             file.lower().endswith('.c++')):
             print(obj_tag.format('cpp', file))
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()

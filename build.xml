@@ -29,7 +29,7 @@
 		<exec>rm ${bin-dir}/buildcc</exec>
 	</target>
 
-	<target name="install-local" comment="Install in place. Just creates a link in /user/bin">
+	<target name="install-local" comment="Install in place. Just creates a link in /usr/bin.">
 		<exec>ln -sT ${_file.dir}/pybuildcc.py ${bin-dir}/buildcc</exec>
 	</target>
 

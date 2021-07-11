@@ -1,13 +1,14 @@
 import xml.etree.cElementTree as ET
 from typing import Dict, List
 from tasks import Task
-from filegens import FileGen
+from filegens import FileGenTask
 from misc import log, parse_preset, update_preset, untempl, flatten
+from errors import ParseError
 import itertools
 
 import compilers
 
-class ObjectTask(FileGen):  # Inherits Task
+class ObjectTask(FileGenTask):  # Inherits Task
     sources: List[str]
     file: str
 
@@ -19,18 +20,29 @@ class ObjectTask(FileGen):  # Inherits Task
     _preset_name: str   # Due to implementation this has to be stored until self.run() is called. (only then is `project` passed to us)
 
     def __init__(self, node: ET.Element, props: Dict, **kwargs):
+
         filesets = kwargs['filesets']
 
-        if 'source' in node.attrib:
-            self.source = [untempl(node.attrib['source'], props)]
-        elif 'source-set' in node.attrib:
-            self.source = filesets[node.attrib['source-set']].get_files()
+        if 'source' in node.attrib:     # some old files may have these
+            raise ParseError('`source` attribute is deprecated. Switch to `src`.')
+        if 'source-set' in node.attrib:
+            raise ParseError('`source-set` attribute is deprecated. Switch to `src-set`.')
+
+        if 'src' in node.attrib:
+            self.source = [untempl(node.attrib['src'], props)]
+        elif 'src-set' in node.attrib:
+            self.source = filesets[node.attrib['src-set']].get_files()
         else:
             self.source = None
 
         self.file   = untempl(node.attrib['file'], props)   if 'file'   in node.attrib else None  # file overrides source if specified
 
-        self.output = [self.file] if self.file else [path + '.o' for path in self.source]
+        if self.file:
+            self.output = [self.file]
+        elif 'output' in node.attrib:
+            self.output = [untempl(node.attrib['output'], props)]
+        else:
+            self.output = [path + '.o' for path in self.source]
 
         self.compiler = compilers.find(
             name=node.attrib['compiler'] if 'compiler' in node.attrib else None, # name overrides lang if specified

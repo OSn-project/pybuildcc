@@ -6,7 +6,7 @@ import os, itertools, glob
 
 from tasks import Task
 
-class FileGen(Task):
+class FileGenTask(Task):
     ''' Any task which generates a file and can be nested '''
 
     def __init__(self, node: ET.Element, props: Dict, **kwargs):
@@ -24,7 +24,7 @@ class FileGen(Task):
 
 # Core sources
 
-class SingleFileSource(FileGen):
+class SingleFileSource(FileGenTask):
     def __init__(self, node: ET.Element, props: Dict, **kwargs):
         self.path = os.path.abspath(
             untempl(node.attrib['path'], props)
@@ -33,7 +33,7 @@ class SingleFileSource(FileGen):
     def get_files(self):
         return [self.path]
 
-class WildcardFileSource(FileGen):
+class WildcardFileSource(FileGenTask):
     def __init__(self, node: ET.Element, props: Dict, **kwargs):
         self.pattern = os.path.abspath(
             untempl(node.attrib['pattern'], props)
@@ -42,7 +42,7 @@ class WildcardFileSource(FileGen):
     def get_files(self):
         return [os.path.abspath(path) for path in glob.glob(self.pattern, recursive=False)]
 
-class FileSet(FileGen):
+class FileSet(FileGenTask):
     sources: List
 
     def __init__(self, node: ET.Element, props: Dict, **kwargs):
